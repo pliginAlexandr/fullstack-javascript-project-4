@@ -1,0 +1,25 @@
+{
+  "name": "fullstack-javascript-project-4",
+  "version": "1.0.0",
+  "description": "[![Actions Status](https://github.com/pliginAlexandr/fullstack-javascript-project-4/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/pliginAlexandr/fullstack-javascript-project-4/actions)",
+  "main": ".eslintrc.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pliginAlexandr/fullstack-javascript-project-4.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pliginAlexandr/fullstack-javascript-project-4/issues"
+  },
+  "homepage": "https://github.com/pliginAlexandr/fullstack-javascript-project-4#readme",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "commander": "^13.1.0"
+  }
+}
