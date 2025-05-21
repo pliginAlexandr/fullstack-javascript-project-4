@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-
 import { Command } from 'commander';
+import pageLoader from '../src/pageLoader.js';
 
 const program = new Command();
 
@@ -21,6 +21,5 @@ program
         process.exit(1);
       });
   });
-  
 
 program.parse(process.argv);
