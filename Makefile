@@ -9,7 +9,7 @@ test: #launch of tests
 	npm test
 	
 test-coverage: #test coverage check
-	npx jest --coverage
+	npm run test:coverage
 	
 publish: #npm dry run
 	npm publish --dry-run
