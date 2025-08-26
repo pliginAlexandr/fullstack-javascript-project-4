@@ -5,6 +5,7 @@ import nock from 'nock'
 import * as cheerio from 'cheerio'
 import pageLoader from '../src/page-loader.js'
 import { fileURLToPath } from 'url'
+import { jest } from '@jest/globals'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -107,17 +108,23 @@ test('pageLoader ignores <img> without src and downloads only valid images', asy
 })
 
 test('pageLoader works with default outputDir (process.cwd())', async () => {
-  const url = 'https://example.com/page'
+  const originalCwd = process.cwd
+  process.cwd = jest.fn(() => tempDir)
 
-  const htmlBefore = '<html><head></head><body><h1>Hello</h1></body></html>'
-  nock('https://example.com')
-    .get('/page')
-    .reply(200, htmlBefore)
+  try {
+    const url = 'https://example.com/page'
+    const htmlBefore = '<html><head></head><body><h1>Hello</h1></body></html>'
 
-  const filepath = await pageLoader(url)
+    nock('https://example.com')
+      .get('/page')
+      .reply(200, htmlBefore)
 
-  const savedHtml = await fs.readFile(filepath, 'utf-8')
-  expect(savedHtml).toContain('<h1>Hello</h1>')
+    const filepath = await pageLoader(url)
 
-  await fs.unlink(filepath)
+    const savedHtml = await fs.readFile(filepath, 'utf-8')
+    expect(savedHtml).toContain('<h1>Hello</h1>')
+  }
+  finally {
+    process.cwd = originalCwd
+  }
 })
