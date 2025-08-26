@@ -31,31 +31,38 @@ test('pageLoader downloads page and pictures', async () => {
   const htmlBefore = await fs.readFile(getFixturePath('before.html'), 'utf-8')
   const htmlAfter = await fs.readFile(getFixturePath('after.html'), 'utf-8')
   const imageFixture = await fs.readFile(getFixturePath('nodejs.png'))
+  const cssFixture = '/* fake css content */'
+  const jsFixture = '// fake js content'
 
-  nock('https://ru.hexlet.io')
-    .get('/courses')
-    .reply(200, htmlBefore)
+  const scope = nock('https://ru.hexlet.io')
+    .persist()
 
-  nock('https://ru.hexlet.io')
-    .get('/assets/professions/nodejs.png')
-    .reply(200, imageFixture)
+  scope.get('/courses').reply(200, htmlBefore)
+  scope.get('/assets/professions/nodejs.png').reply(200, imageFixture)
+  scope.get('/assets/application.css').reply(200, cssFixture)
+  scope.get('/packs/js/runtime.js').reply(200, jsFixture)
 
-  const filepath = await pageLoader(url, tempDir)
+  try {
+    const filepath = await pageLoader(url, tempDir)
 
-  const savedHtml = await fs.readFile(filepath, 'utf-8')
+    const savedHtml = await fs.readFile(filepath, 'utf-8')
 
-  const $expected = cheerio.load(htmlAfter)
-  const $received = cheerio.load(savedHtml)
+    const $expected = cheerio.load(htmlAfter)
+    const $received = cheerio.load(savedHtml)
 
-  expect($received('title').text()).toBe($expected('title').text())
-  expect($received('img').attr('src')).toBe($expected('img').attr('src'))
-  expect($received('img').attr('alt')).toBe($expected('img').attr('alt'))
+    expect($received('title').text()).toBe($expected('title').text())
+    expect($received('img').attr('src')).toBe($expected('img').attr('src'))
+    expect($received('img').attr('alt')).toBe($expected('img').attr('alt'))
 
-  const resourcesDir = path.join(tempDir, 'ru-hexlet-io-courses_files')
-  const savedImagePath = path.join(resourcesDir, 'ru-hexlet-io-assets-professions-nodejs.png')
-  const savedImage = await fs.readFile(savedImagePath)
+    const resourcesDir = path.join(tempDir, 'ru-hexlet-io-courses_files')
+    const savedImagePath = path.join(resourcesDir, 'ru-hexlet-io-assets-professions-nodejs.png')
+    const savedImage = await fs.readFile(savedImagePath)
 
-  expect(savedImage).toEqual(imageFixture)
+    expect(savedImage).toEqual(imageFixture)
+  }
+  finally {
+    nock.cleanAll()
+  }
 })
 
 test('pageLoader ignores <img> without src and downloads only valid images', async () => {
