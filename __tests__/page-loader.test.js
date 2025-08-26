@@ -57,3 +57,44 @@ test('pageLoader downloads page and pictures', async () => {
 
   expect(savedImage).toEqual(imageFixture)
 })
+
+test('pageLoader ignores <img> without src and downloads only valid images', async () => {
+  const url = 'https://example.com/page'
+
+  const htmlBefore = `
+    <!DOCTYPE html>
+    <html>
+      <body>
+        <img src="/images/picture.png" alt="valid"/>
+        <img alt="broken-without-src"/>
+      </body>
+    </html>
+  `
+
+  const imageFixture = Buffer.from('fake image content')
+
+  nock('https://example.com')
+    .get('/page')
+    .reply(200, htmlBefore)
+
+  nock('https://example.com')
+    .get('/images/picture.png')
+    .reply(200, imageFixture)
+
+  const savedHtmlPath = await pageLoader(url, tempDir)
+  const savedHtml = await fs.readFile(savedHtmlPath, 'utf-8')
+
+  const $ = cheerio.load(savedHtml)
+
+  expect($('img').length).toBe(2)
+  expect($('img').first().attr('src'))
+    .toBe('example-com-page_files/example-com-images-picture.png')
+  expect($('img').first().attr('alt')).toBe('valid')
+  expect($('img').last().attr('src')).toBeUndefined()
+
+  const resourcesDir = path.join(tempDir, 'example-com-page_files')
+  const savedImagePath = path.join(resourcesDir, 'example-com-images-picture.png')
+  const savedImage = await fs.readFile(savedImagePath)
+
+  expect(savedImage).toEqual(imageFixture)
+})
