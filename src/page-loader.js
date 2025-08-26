@@ -41,13 +41,29 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
           return axios.get(resourceUrl, { responseType: 'arraybuffer' })
             .then(res => fs.writeFile(resourcePath, res.data))
-        }).get(),
+            .catch((error) => {
+              console.warn(`Failed to download resource: ${resourceUrl}`, error.message)
+              return null
+            })
+        }).get().filter(Boolean),
       )
 
       return fs.mkdir(resourcesDir, { recursive: true })
         .then(() => Promise.all(resourcePromises))
         .then(() => fs.writeFile(filepath, $.html()))
         .then(() => filepath)
+    })
+    .catch((error) => {
+      if (error.code === 'EACCES' || error.code === 'EPERM') {
+        throw new Error(`Permission denied: ${outputDir}`)
+      }
+      if (error.code === 'ENOENT') {
+        throw new Error(`Directory does not exist: ${outputDir}`)
+      }
+      if (error.code === 'ENOTDIR') {
+        throw new Error(`Not a directory: ${outputDir}`)
+      }
+      throw error
     })
 }
 

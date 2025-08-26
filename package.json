@@ -4,7 +4,10 @@
   "description": "[![Actions Status](https://github.com/pliginAlexandr/fullstack-javascript-project-4/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/pliginAlexandr/fullstack-javascript-project-4/actions)",
   "main": "src/page-loader.js",
   "type": "module",
-  "scripts": {
+  "bin": {
+    "page-loader": "./src/page-loader.js"
+  },
+    "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand"
   },
