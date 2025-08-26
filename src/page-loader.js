@@ -11,47 +11,53 @@ const isLocal = (resourceUrl, baseUrl) => {
 }
 
 const pageLoader = (url, outputDir = process.cwd()) => {
-  const pageFilename = makeFilename(url)
-  const filepath = path.join(outputDir, pageFilename)
-  const resourcesDir = path.join(outputDir, makeDirName(url))
+  return fs.access(outputDir, fs.constants.W_OK)
+    .catch(() => {
+      throw new Error(`Directory not writable: ${outputDir}`)
+    })
+    .then(() => {
+      const pageFilename = makeFilename(url)
+      const filepath = path.join(outputDir, pageFilename)
+      const resourcesDir = path.join(outputDir, makeDirName(url))
 
-  return axios.get(url)
-    .then((response) => {
-      const $ = cheerio.load(response.data)
+      return axios.get(url)
+        .then((response) => {
+          const $ = cheerio.load(response.data)
 
-      const selectors = [
-        { tag: 'img', attr: 'src' },
-        { tag: 'link', attr: 'href' },
-        { tag: 'script', attr: 'src' },
-      ]
+          const selectors = [
+            { tag: 'img', attr: 'src' },
+            { tag: 'link', attr: 'href' },
+            { tag: 'script', attr: 'src' },
+          ]
 
-      const resourcePromises = selectors.flatMap(({ tag, attr }) =>
-        $(tag).map((i, el) => {
-          const src = $(el).attr(attr)
-          if (!src) return null
+          const resourcePromises = selectors.flatMap(({ tag, attr }) =>
+            $(tag).map((i, el) => {
+              const src = $(el).attr(attr)
+              if (!src) return null
 
-          const resourceUrl = new URL(src, url).toString()
+              const resourceUrl = new URL(src, url).toString()
 
-          if (!isLocal(resourceUrl, url)) return null
+              if (!isLocal(resourceUrl, url)) return null
 
-          const resourceFilename = makeResourceName(resourceUrl)
-          const resourcePath = path.join(resourcesDir, resourceFilename)
+              const resourceFilename = makeResourceName(resourceUrl)
+              const resourcePath = path.join(resourcesDir, resourceFilename)
 
-          $(el).attr(attr, `${makeDirName(url)}/${resourceFilename}`)
+              $(el).attr(attr, `${makeDirName(url)}/${resourceFilename}`)
 
-          return axios.get(resourceUrl, { responseType: 'arraybuffer' })
-            .then(res => fs.writeFile(resourcePath, res.data))
-            .catch((error) => {
-              console.warn(`Failed to download resource: ${resourceUrl}`, error.message)
-              return null
-            })
-        }).get().filter(Boolean),
-      )
+              return axios.get(resourceUrl, { responseType: 'arraybuffer' })
+                .then(res => fs.writeFile(resourcePath, res.data))
+                .catch((error) => {
+                  console.warn(`Failed to download resource: ${resourceUrl}`, error.message)
+                  return null
+                })
+            }).get().filter(Boolean),
+          )
 
-      return fs.mkdir(resourcesDir, { recursive: true })
-        .then(() => Promise.all(resourcePromises))
-        .then(() => fs.writeFile(filepath, $.html()))
-        .then(() => filepath)
+          return fs.mkdir(resourcesDir, { recursive: true })
+            .then(() => Promise.all(resourcePromises))
+            .then(() => fs.writeFile(filepath, $.html()))
+            .then(() => filepath)
+        })
     })
     .catch((error) => {
       if (error.code === 'EACCES' || error.code === 'EPERM') {

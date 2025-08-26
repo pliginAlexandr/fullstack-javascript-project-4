@@ -2,10 +2,10 @@
   "name": "@hexlet/code",
   "version": "1.0.0",
   "description": "[![Actions Status](https://github.com/pliginAlexandr/fullstack-javascript-project-4/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/pliginAlexandr/fullstack-javascript-project-4/actions)",
-  "main": "src/page-loader.js",
+  "main": "./src/page-loader.js",
   "type": "module",
   "bin": {
-    "page-loader": "./src/page-loader.js"
+    "page-loader": "./bin/cli.js"
   },
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
