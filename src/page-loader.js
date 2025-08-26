@@ -4,6 +4,12 @@ import path from 'path'
 import * as cheerio from 'cheerio'
 import { makeFilename, makeDirName, makeResourceName } from './utils.js'
 
+const isLocal = (resourceUrl, baseUrl) => {
+  const pageHost = new URL(baseUrl).hostname
+  const resHost = new URL(resourceUrl, baseUrl).hostname
+  return pageHost === resHost
+}
+
 const pageLoader = (url, outputDir = process.cwd()) => {
   const pageFilename = makeFilename(url)
   const filepath = path.join(outputDir, pageFilename)
@@ -13,24 +19,33 @@ const pageLoader = (url, outputDir = process.cwd()) => {
     .then((response) => {
       const $ = cheerio.load(response.data)
 
-      const imgPromises = $('img').map((i, el) => {
-        const src = $(el).attr('src')
-        if (!src) return null
+      const selectors = [
+        { tag: 'img', attr: 'src' },
+        { tag: 'link', attr: 'href' },
+        { tag: 'script', attr: 'src' },
+      ]
 
-        const resourceUrl = new URL(src, url).toString()
+      const resourcePromises = selectors.flatMap(({ tag, attr }) =>
+        $(tag).map((i, el) => {
+          const src = $(el).attr(attr)
+          if (!src) return null
 
-        const resourceFilename = makeResourceName(resourceUrl)
+          const resourceUrl = new URL(src, url).toString()
 
-        const resourcePath = path.join(resourcesDir, resourceFilename)
+          if (!isLocal(resourceUrl, url)) return null
 
-        $(el).attr('src', `${makeDirName(url)}/${resourceFilename}`)
+          const resourceFilename = makeResourceName(resourceUrl)
+          const resourcePath = path.join(resourcesDir, resourceFilename)
 
-        return axios.get(resourceUrl, { responseType: 'arraybuffer' })
-          .then(res => fs.writeFile(resourcePath, res.data))
-      }).get()
+          $(el).attr(attr, `${makeDirName(url)}/${resourceFilename}`)
+
+          return axios.get(resourceUrl, { responseType: 'arraybuffer' })
+            .then(res => fs.writeFile(resourcePath, res.data))
+        }).get(),
+      )
 
       return fs.mkdir(resourcesDir, { recursive: true })
-        .then(() => Promise.all(imgPromises))
+        .then(() => Promise.all(resourcePromises))
         .then(() => fs.writeFile(filepath, $.html()))
         .then(() => filepath)
     })
