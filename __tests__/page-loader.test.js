@@ -98,3 +98,19 @@ test('pageLoader ignores <img> without src and downloads only valid images', asy
 
   expect(savedImage).toEqual(imageFixture)
 })
+
+test('pageLoader works with default outputDir (process.cwd())', async () => {
+  const url = 'https://example.com/page'
+
+  const htmlBefore = '<html><head></head><body><h1>Hello</h1></body></html>'
+  nock('https://example.com')
+    .get('/page')
+    .reply(200, htmlBefore)
+
+  const filepath = await pageLoader(url)
+
+  const savedHtml = await fs.readFile(filepath, 'utf-8')
+  expect(savedHtml).toContain('<h1>Hello</h1>')
+
+  await fs.unlink(filepath)
+})
