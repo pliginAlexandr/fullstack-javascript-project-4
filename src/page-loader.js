@@ -2,7 +2,7 @@ import axios from 'axios'
 import { promises as fs } from 'fs'
 import path from 'path'
 import * as cheerio from 'cheerio'
-import { makeFilename, makeDirName, makeResourceName } from './utils.js'
+import { makeFilename, makeDirName, makeResourceName, isResource } from './utils.js'
 
 const isLocal = (resourceUrl, baseUrl) => {
   const pageHost = new URL(baseUrl).hostname
@@ -37,7 +37,9 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
               const resourceUrl = new URL(src, url).toString()
 
-              if (!isLocal(resourceUrl, url)) return null
+              if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
+                return null
+              }
 
               const resourceFilename = makeResourceName(resourceUrl)
               const resourcePath = path.join(resourcesDir, resourceFilename)

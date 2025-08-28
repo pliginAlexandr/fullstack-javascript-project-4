@@ -7,8 +7,14 @@ const makeFilename = (link) => {
   return `${base}.html`
 }
 
-const makeDirName = (link) => {
-  return makeFilename(link).replace(/\.html$/, '_files')
+const makeDirName = (url) => {
+  const urlObj = new URL(url)
+  const hostname = urlObj.hostname.replace(/\./g, '-')
+  const pathname = urlObj.pathname === '/' ? '' : urlObj.pathname
+
+  const normalizedPath = pathname.replace(/\//g, '-').replace(/^-|-$/g, '')
+
+  return `${hostname}${normalizedPath ? '-' + normalizedPath : ''}_files`
 }
 
 const makeResourceName = (link) => {
@@ -19,4 +25,26 @@ const makeResourceName = (link) => {
   return `${base}${ext}`
 }
 
-export { makeFilename, makeDirName, makeResourceName }
+const isResource = (resourceUrl, baseUrl) => {
+  try {
+    if (resourceUrl === baseUrl) return false
+
+    const { pathname } = new URL(resourceUrl)
+    const extension = path.extname(pathname).toLowerCase()
+
+    if (!extension) return false
+
+    const resourceExtensions = [
+      '.png', '.jpg', '.jpeg', '.gif', '.svg',
+      '.css', '.js', '.ico', '.webp',
+    ]
+
+    return resourceExtensions.includes(extension)
+  }
+  catch (e) {
+    console.warn(`Invalid URL: ${resourceUrl}`, e.message)
+    return false
+  }
+}
+
+export { makeFilename, makeDirName, makeResourceName, isResource }
