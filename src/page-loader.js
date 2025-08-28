@@ -23,57 +23,45 @@ const pageLoader = (url, outputDir = process.cwd()) => {
     .then(() => axios.get(url))
     .then((response) => {
       const $ = cheerio.load(response.data)
-
       const selectors = [
         { tag: 'img', attr: 'src' },
         { tag: 'link', attr: 'href' },
         { tag: 'script', attr: 'src' },
       ]
 
-      const resourcePromises = selectors.flatMap(({ tag, attr }) =>
-        $(tag)
-          .map((i, el) => {
-            const src = $(el).attr(attr)
-            if (!src) return null
+      const resourcePromises = []
 
-            const resourceUrl = new URL(src, url).toString()
+      selectors.forEach(({ tag, attr }) => {
+        $(tag).each((i, el) => {
+          const src = $(el).attr(attr)
+          if (!src) return
 
-            if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
+          const resourceUrl = new URL(src, url).toString()
+
+          if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
+            return
+          }
+
+          const resourceFilename = makeResourceName(resourceUrl)
+          const resourcePath = path.join(resourcesDir, resourceFilename)
+
+          $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
+
+          const downloadPromise = axios.get(resourceUrl, { responseType: 'arraybuffer' })
+            .then(res => fs.writeFile(resourcePath, res.data))
+            .catch((err) => {
+              console.error(`Failed to download resource: ${resourceUrl}`, err.message)
               return null
-            }
+            })
 
-            const resourceFilename = makeResourceName(resourceUrl)
-            const resourcePath = path.join(resourcesDir, resourceFilename)
-
-            $(el).attr(attr, `${resourcesDirName}/${resourceFilename}`)
-
-            return axios.get(resourceUrl, { responseType: 'arraybuffer' })
-              .then(res => fs.writeFile(resourcePath, res.data))
-              .catch((error) => {
-                console.error(`Failed to download resource: ${resourceUrl}`, error.message)
-                return null
-              })
-          })
-          .get()
-          .filter(Boolean),
-      )
+          resourcePromises.push(downloadPromise)
+        })
+      })
 
       return fs.mkdir(resourcesDir, { recursive: true })
         .then(() => Promise.all(resourcePromises))
         .then(() => fs.writeFile(filepath, $.html()))
         .then(() => filepath)
-    })
-    .catch((error) => {
-      if (error.code === 'EACCES' || error.code === 'EPERM') {
-        throw new Error(`Permission denied: ${outputDir}`)
-      }
-      if (error.code === 'ENOENT') {
-        throw new Error(`Directory does not exist: ${outputDir}`)
-      }
-      if (error.code === 'ENOTDIR') {
-        throw new Error(`Not a directory: ${outputDir}`)
-      }
-      throw error
     })
 }
 
