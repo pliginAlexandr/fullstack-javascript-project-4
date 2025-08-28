@@ -16,9 +16,10 @@ const pageLoader = (url, outputDir = process.cwd()) => {
       throw new Error(`Directory not writable: ${outputDir}`)
     })
     .then(() => {
-      const pageFilename = makeFilename(url)
-      const filepath = path.join(outputDir, pageFilename)
-      const resourcesDir = path.join(outputDir, makeDirName(url))
+      const pageFilename = makeFilename(url) 
+      const filepath = path.join(outputDir, pageFilename) 
+      const resourcesDirName = makeDirName(url) 
+      const resourcesDir = path.join(outputDir, resourcesDirName)
 
       return axios.get(url)
         .then((response) => {
@@ -44,7 +45,8 @@ const pageLoader = (url, outputDir = process.cwd()) => {
               const resourceFilename = makeResourceName(resourceUrl)
               const resourcePath = path.join(resourcesDir, resourceFilename)
 
-              $(el).attr(attr, `${makeDirName(url)}/${resourceFilename}`)
+              // Меняем путь в HTML
+              $(el).attr(attr, `${resourcesDirName}/${resourceFilename}`)
 
               return axios.get(resourceUrl, { responseType: 'arraybuffer' })
                 .then(res => fs.writeFile(resourcePath, res.data))
