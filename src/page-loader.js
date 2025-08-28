@@ -45,7 +45,6 @@ const pageLoader = (url, outputDir = process.cwd()) => {
               const resourceFilename = makeResourceName(resourceUrl)
               const resourcePath = path.join(resourcesDir, resourceFilename)
 
-              // Меняем путь в HTML
               $(el).attr(attr, `${resourcesDirName}/${resourceFilename}`)
 
               return axios.get(resourceUrl, { responseType: 'arraybuffer' })
