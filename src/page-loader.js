@@ -13,6 +13,7 @@ const isLocal = (resourceUrl, baseUrl) => {
 const pageLoader = (url, outputDir = process.cwd()) => {
   const pageFilename = makeFilename(url)
   const filepath = path.join(outputDir, pageFilename)
+
   const resourcesDirName = makeDirName(url)
   const resourcesDir = path.join(outputDir, resourcesDirName)
 
@@ -23,20 +24,23 @@ const pageLoader = (url, outputDir = process.cwd()) => {
     .then(() => axios.get(url))
     .then((response) => {
       const $ = cheerio.load(response.data)
+
       const selectors = [
         { tag: 'img', attr: 'src' },
         { tag: 'link', attr: 'href' },
         { tag: 'script', attr: 'src' },
+        { tag: 'a', attr: 'href' },
       ]
 
-      const resourcePromises = []
+      const downloadTasks = []
 
       selectors.forEach(({ tag, attr }) => {
         $(tag).each((i, el) => {
-          const src = $(el).attr(attr)
-          if (!src) return
+          const raw = $(el).attr(attr)
+          if (!raw) return
+          if (raw.startsWith('#') || raw.startsWith('mailto:') || raw.startsWith('tel:')) return
 
-          const resourceUrl = new URL(src, url).toString()
+          const resourceUrl = new URL(raw, url).toString()
 
           if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
             return
@@ -45,21 +49,20 @@ const pageLoader = (url, outputDir = process.cwd()) => {
           const resourceFilename = makeResourceName(resourceUrl)
           const resourcePath = path.join(resourcesDir, resourceFilename)
 
-          $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
+          $(el).attr(attr, path.posix.join(resourcesDirName, resourceFilename))
 
-          const downloadPromise = axios.get(resourceUrl, { responseType: 'arraybuffer' })
+          downloadTasks.push(() => axios
+            .get(resourceUrl, { responseType: 'arraybuffer' })
             .then(res => fs.writeFile(resourcePath, res.data))
             .catch((err) => {
               console.error(`Failed to download resource: ${resourceUrl}`, err.message)
               return null
-            })
-
-          resourcePromises.push(downloadPromise)
+            }))
         })
       })
 
       return fs.mkdir(resourcesDir, { recursive: true })
-        .then(() => Promise.all(resourcePromises))
+        .then(() => Promise.all(downloadTasks.map(fn => fn())))
         .then(() => fs.writeFile(filepath, $.html()))
         .then(() => filepath)
     })
