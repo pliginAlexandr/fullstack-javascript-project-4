@@ -13,59 +13,55 @@ const isLocal = (resourceUrl, baseUrl) => {
 const pageLoader = (url, outputDir = process.cwd()) => {
   const pageFilename = makeFilename(url)
   const filepath = path.join(outputDir, pageFilename)
-
   const resourcesDirName = makeDirName(url)
   const resourcesDir = path.join(outputDir, resourcesDirName)
 
   return fs.access(outputDir, fs.constants.W_OK)
-    .catch(() => {
-      throw new Error(`Directory not writable: ${outputDir}`)
-    })
+    .catch(() => { throw new Error(`Directory not writable: ${outputDir}`) })
     .then(() => axios.get(url))
     .then((response) => {
       const $ = cheerio.load(response.data)
-
       const selectors = [
         { tag: 'img', attr: 'src' },
         { tag: 'link', attr: 'href' },
         { tag: 'script', attr: 'src' },
-        { tag: 'a', attr: 'href' },
       ]
 
-      const downloadTasks = []
-
-      selectors.forEach(({ tag, attr }) => {
-        $(tag).each((i, el) => {
-          const raw = $(el).attr(attr)
-          if (!raw) return
-          if (raw.startsWith('#') || raw.startsWith('mailto:') || raw.startsWith('tel:')) return
-
-          const resourceUrl = new URL(raw, url).toString()
-
-          if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
-            return
-          }
-
-          const resourceFilename = makeResourceName(resourceUrl)
-          const resourcePath = path.join(resourcesDir, resourceFilename)
-
-          $(el).attr(attr, path.posix.join(resourcesDirName, resourceFilename))
-
-          downloadTasks.push(() => axios
-            .get(resourceUrl, { responseType: 'arraybuffer' })
-            .then(res => fs.writeFile(resourcePath, res.data))
-            .catch((err) => {
-              console.error(`Failed to download resource: ${resourceUrl}`, err.message)
-              return null
-            }))
-        })
-      })
-
       return fs.mkdir(resourcesDir, { recursive: true })
-        .then(() => Promise.all(downloadTasks.map(fn => fn())))
-        .then(() => fs.writeFile(filepath, $.html()))
-        .then(() => filepath)
+        .then(() => {
+          const resourcePromises = []
+
+          selectors.forEach(({ tag, attr }) => {
+            $(tag).each((i, el) => {
+              const src = $(el).attr(attr)
+              if (!src) return
+
+              const resourceUrl = new URL(src, url).toString()
+
+              if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
+                return
+              }
+
+              const resourceFilename = makeResourceName(resourceUrl)
+              const resourcePath = path.join(resourcesDir, resourceFilename)
+
+              $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
+
+              const downloadPromise = axios.get(resourceUrl, { responseType: 'arraybuffer' })
+                .then(res => fs.writeFile(resourcePath, res.data))
+                .catch((err) => {
+                  console.error(`Failed to download resource: ${resourceUrl}`, err.message)
+                  return null
+                })
+
+              resourcePromises.push(downloadPromise)
+            })
+          })
+
+          return Promise.all(resourcePromises).then(() => $.html())
+        })
     })
+    .then(html => fs.writeFile(filepath, html).then(() => filepath))
 }
 
 export default pageLoader
