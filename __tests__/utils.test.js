@@ -10,7 +10,7 @@ describe('makeFilename', () => {
       .toBe('example-com-about.html')
 
     expect(makeFilename('https://my.site.com/some/path/'))
-      .toBe('my-site-com-some-path-.html')
+      .toBe('my-site-com-some-path.html')
   })
 
   test('name generator runs url without pathname', () => {
