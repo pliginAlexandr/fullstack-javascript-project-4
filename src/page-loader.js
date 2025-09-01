@@ -12,7 +12,6 @@ const isLocal = (resourceUrl, baseUrl) => {
 
 const pageLoader = (url, outputDir = process.cwd()) => {
   const pageFilename = makeFilename(url)
-  const filepath = path.join(outputDir, pageFilename)
   const resourcesDirName = makeDirName(url)
   const resourcesDir = path.join(outputDir, resourcesDirName)
 
@@ -27,41 +26,43 @@ const pageLoader = (url, outputDir = process.cwd()) => {
         { tag: 'script', attr: 'src' },
       ]
 
-      return fs.mkdir(resourcesDir, { recursive: true })
-        .then(() => {
-          const resourcePromises = []
+      const resourcePromises = []
 
-          selectors.forEach(({ tag, attr }) => {
-            $(tag).each((i, el) => {
-              const src = $(el).attr(attr)
-              if (!src) return
+      selectors.forEach(({ tag, attr }) => {
+        $(tag).each((i, el) => {
+          const src = $(el).attr(attr)
+          if (!src) return
 
-              const resourceUrl = new URL(src, url).toString()
+          const resourceUrl = new URL(src, url).toString()
 
-              if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
-                return
-              }
+          if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
+            return
+          }
 
-              const resourceFilename = makeResourceName(resourceUrl)
-              const resourcePath = path.join(resourcesDir, resourceFilename)
+          const resourceFilename = makeResourceName(resourceUrl)
+          const resourcePath = path.join(resourcesDir, resourceFilename)
 
-              $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
+          $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
 
-              const downloadPromise = axios.get(resourceUrl, { responseType: 'arraybuffer' })
-                .then(res => fs.writeFile(resourcePath, res.data))
-                .catch((err) => {
-                  console.error(`Failed to download resource: ${resourceUrl}`, err.message)
-                  return null
-                })
-
-              resourcePromises.push(downloadPromise)
+          const downloadPromise = axios.get(resourceUrl, { responseType: 'arraybuffer' })
+            .then(res => fs.writeFile(resourcePath, res.data))
+            .catch((err) => {
+              console.error(`Failed to download resource: ${resourceUrl}`, err.message)
+              return null
             })
-          })
 
-          return Promise.all(resourcePromises).then(() => $.html())
+          resourcePromises.push(downloadPromise)
+        })
+      })
+
+      return fs.mkdir(resourcesDir, { recursive: true })
+        .then(() => Promise.all(resourcePromises))
+        .then(() => {
+          const htmlResourcePath = path.join(resourcesDir, pageFilename)
+          return fs.writeFile(htmlResourcePath, $.html())
+            .then(() => htmlResourcePath)
         })
     })
-    .then(html => fs.writeFile(filepath, html).then(() => filepath))
 }
 
 export default pageLoader
