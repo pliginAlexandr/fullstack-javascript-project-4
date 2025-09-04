@@ -12,8 +12,9 @@ const isLocal = (resourceUrl, baseUrl) => {
 
 const pageLoader = (url, outputDir = process.cwd()) => {
   const pageFilename = makeFilename(url)
-  const resourcesDirName = makeDirName(url)
+  const resourcesDirName = makeDirName(url)            
   const resourcesDir = path.join(outputDir, resourcesDirName)
+  const htmlPath = path.join(outputDir, pageFilename)  
 
   return fs.access(outputDir, fs.constants.W_OK)
     .catch(() => { throw new Error(`Directory not writable: ${outputDir}`) })
@@ -57,11 +58,8 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
       return fs.mkdir(resourcesDir, { recursive: true })
         .then(() => Promise.all(resourcePromises))
-        .then(() => {
-          const htmlResourcePath = path.join(resourcesDir, pageFilename)
-          return fs.writeFile(htmlResourcePath, $.html())
-            .then(() => htmlResourcePath)
-        })
+        .then(() => fs.writeFile(htmlPath, $.html()))
+        .then(() => htmlPath)
     })
 }
 
