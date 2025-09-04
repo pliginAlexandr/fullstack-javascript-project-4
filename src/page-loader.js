@@ -12,9 +12,9 @@ const isLocal = (resourceUrl, baseUrl) => {
 
 const pageLoader = (url, outputDir = process.cwd()) => {
   const pageFilename = makeFilename(url)
-  const resourcesDirName = makeDirName(url)            
+  const resourcesDirName = makeDirName(url)
   const resourcesDir = path.join(outputDir, resourcesDirName)
-  const htmlPath = path.join(outputDir, pageFilename)  
+  const htmlPath = path.join(outputDir, pageFilename)
 
   return fs.access(outputDir, fs.constants.W_OK)
     .catch(() => { throw new Error(`Directory not writable: ${outputDir}`) })
