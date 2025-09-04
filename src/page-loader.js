@@ -12,12 +12,14 @@ const isLocal = (resourceUrl, baseUrl) => {
 
 const pageLoader = (url, outputDir = process.cwd()) => {
   const pageFilename = makeFilename(url)
+  const filepath = path.join(outputDir, pageFilename)
   const resourcesDirName = makeDirName(url)
   const resourcesDir = path.join(outputDir, resourcesDirName)
-  const htmlPath = path.join(outputDir, pageFilename)
 
   return fs.access(outputDir, fs.constants.W_OK)
-    .catch(() => { throw new Error(`Directory not writable: ${outputDir}`) })
+    .catch(() => {
+      throw new Error(`Directory not writable: ${outputDir}`)
+    })
     .then(() => axios.get(url))
     .then((response) => {
       const $ = cheerio.load(response.data)
@@ -36,7 +38,7 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
           const resourceUrl = new URL(src, url).toString()
 
-          if (!isLocal(resourceUrl, url) || !isResource(resourceUrl, url)) {
+          if (!isLocal(resourceUrl, url) || !isResource(resourceUrl)) {
             return
           }
 
@@ -58,8 +60,8 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
       return fs.mkdir(resourcesDir, { recursive: true })
         .then(() => Promise.all(resourcePromises))
-        .then(() => fs.writeFile(htmlPath, $.html()))
-        .then(() => htmlPath)
+        .then(() => fs.writeFile(filepath, $.html()))
+        .then(() => filepath)
     })
 }
 
