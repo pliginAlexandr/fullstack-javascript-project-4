@@ -1,8 +1,28 @@
 import axios from 'axios'
+import axiosDebug from 'axios-debug-log'
 import { promises as fs } from 'fs'
 import path from 'path'
 import * as cheerio from 'cheerio'
 import { makeFilename, makeDirName, makeResourceName, isResource } from './utils.js'
+
+axiosDebug({
+  request: (debug, config) => {
+    debug('Request', config.method?.toUpperCase(), config.url)
+  },
+  response: (debug, response) => {
+    debug('Response', response.status, response.config.url)
+  },
+  error: (debug, error) => {
+    if (error.response) {
+      debug('Error', error.response.status, error.config.url)
+    }
+    else {
+      debug('Network Error', error.message)
+    }
+  },
+})
+
+axiosDebug.addLogger(axios)
 
 const isLocal = (resourceUrl, baseUrl) => {
   const pageHost = new URL(baseUrl).hostname
