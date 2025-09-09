@@ -6,6 +6,7 @@ import * as cheerio from 'cheerio'
 import pageLoader from '../src/page-loader.js'
 import { fileURLToPath } from 'url'
 import { jest } from '@jest/globals'
+import debug from 'debug'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -14,16 +15,21 @@ const getFixturePath = filename => path.join(__dirname, '..', '__fixtures__', fi
 
 let tempDir
 
+// Логгер для тестов
+const log = debug('page-loader:test')
+
 beforeAll(() => {
   nock.disableNetConnect()
 })
 
 beforeEach(async () => {
   tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'page-loader-'))
+  log(`Created temp directory: ${tempDir}`)
 })
 
 afterEach(() => {
   nock.cleanAll()
+  log('Cleaned all nock interceptors')
 })
 
 test('pageLoader downloads page and pictures', async () => {
@@ -44,6 +50,7 @@ test('pageLoader downloads page and pictures', async () => {
   scope.get('/packs/js/runtime.js').reply(200, jsFixture)
 
   try {
+    log(`Start test: ${url}`)
     const filepath = await pageLoader(url, tempDir)
 
     const savedHtml = await fs.readFile(filepath, 'utf-8')
@@ -60,6 +67,7 @@ test('pageLoader downloads page and pictures', async () => {
     const savedImage = await fs.readFile(savedImagePath)
 
     expect(savedImage).toEqual(imageFixture)
+    log('Test completed successfully')
   }
   finally {
     nock.cleanAll()
@@ -89,6 +97,7 @@ test('pageLoader ignores <img> without src and downloads only valid images', asy
     .get('/images/picture.png')
     .reply(200, imageFixture)
 
+  log(`Start test: ${url}`)
   const savedHtmlPath = await pageLoader(url, tempDir)
   const savedHtml = await fs.readFile(savedHtmlPath, 'utf-8')
 
@@ -105,6 +114,7 @@ test('pageLoader ignores <img> without src and downloads only valid images', asy
   const savedImage = await fs.readFile(savedImagePath)
 
   expect(savedImage).toEqual(imageFixture)
+  log('Test completed successfully')
 })
 
 test('pageLoader works with default outputDir (process.cwd())', async () => {
@@ -119,10 +129,12 @@ test('pageLoader works with default outputDir (process.cwd())', async () => {
       .get('/page')
       .reply(200, htmlBefore)
 
+    log(`Start test: ${url} with default outputDir`)
     const filepath = await pageLoader(url)
 
     const savedHtml = await fs.readFile(filepath, 'utf-8')
     expect(savedHtml).toContain('<h1>Hello</h1>')
+    log('Test completed successfully')
   }
   finally {
     process.cwd = originalCwd
