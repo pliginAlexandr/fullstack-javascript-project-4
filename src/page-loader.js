@@ -1,5 +1,6 @@
 import axios from 'axios'
 import axiosDebug from 'axios-debug-log'
+import debug from 'debug'
 import { promises as fs } from 'fs'
 import path from 'path'
 import * as cheerio from 'cheerio'
@@ -21,8 +22,9 @@ axiosDebug({
     }
   },
 })
-
 axiosDebug.addLogger(axios)
+
+const log = debug('page-loader')
 
 const isLocal = (resourceUrl, baseUrl) => {
   const pageHost = new URL(baseUrl).hostname
@@ -31,6 +33,8 @@ const isLocal = (resourceUrl, baseUrl) => {
 }
 
 const pageLoader = (url, outputDir = process.cwd()) => {
+  log(`Start loading page: ${url}`)
+
   const pageFilename = makeFilename(url)
   const filepath = path.join(outputDir, pageFilename)
   const resourcesDirName = makeDirName(url)
@@ -38,10 +42,13 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
   return fs.access(outputDir, fs.constants.W_OK)
     .catch(() => {
+      log(`Directory not writable: ${outputDir}`)
       throw new Error(`Directory not writable: ${outputDir}`)
     })
     .then(() => axios.get(url))
     .then((response) => {
+      log(`Page downloaded: ${url}, status: ${response.status}`)
+
       const $ = cheerio.load(response.data)
       const selectors = [
         { tag: 'img', attr: 'src' },
@@ -59,6 +66,7 @@ const pageLoader = (url, outputDir = process.cwd()) => {
           const resourceUrl = new URL(src, url).toString()
 
           if (!isLocal(resourceUrl, url) || !isResource(resourceUrl)) {
+            log(`Skip external or non-resource: ${resourceUrl}`)
             return
           }
 
@@ -67,9 +75,15 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
           $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
 
+          log(`Downloading resource: ${resourceUrl} -> ${resourcePath}`)
+
           const downloadPromise = axios.get(resourceUrl, { responseType: 'arraybuffer' })
-            .then(res => fs.writeFile(resourcePath, res.data))
+            .then((res) => {
+              log(`Resource downloaded: ${resourceUrl}, status: ${res.status}`)
+              return fs.writeFile(resourcePath, res.data)
+            })
             .catch((err) => {
+              log(`Failed to download resource: ${resourceUrl}, error: ${err.message}`)
               console.error(`Failed to download resource: ${resourceUrl}`, err.message)
               return null
             })
@@ -81,7 +95,10 @@ const pageLoader = (url, outputDir = process.cwd()) => {
       return fs.mkdir(resourcesDir, { recursive: true })
         .then(() => Promise.all(resourcePromises))
         .then(() => fs.writeFile(filepath, $.html()))
-        .then(() => filepath)
+        .then(() => {
+          log(`Page successfully saved to: ${filepath}`)
+          return filepath
+        })
     })
 }
 
