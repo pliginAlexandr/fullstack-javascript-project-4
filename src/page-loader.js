@@ -32,7 +32,7 @@ const isLocal = (resourceUrl, baseUrl) => {
   return pageHost === resHost
 }
 
-const pageLoader = (url, outputDir = process.cwd()) => {
+const pageLoader = async (url, outputDir = process.cwd()) => {
   log(`Start loading page: ${url}`)
 
   const pageFilename = makeFilename(url)
@@ -40,66 +40,80 @@ const pageLoader = (url, outputDir = process.cwd()) => {
   const resourcesDirName = makeDirName(url)
   const resourcesDir = path.join(outputDir, resourcesDirName)
 
-  return fs.access(outputDir, fs.constants.W_OK)
-    .catch(() => {
-      log(`Directory not writable: ${outputDir}`)
-      throw new Error(`Directory not writable: ${outputDir}`)
-    })
-    .then(() => axios.get(url))
-    .then((response) => {
-      log(`Page downloaded: ${url}, status: ${response.status}`)
+  try {
+    await fs.access(outputDir, fs.constants.W_OK)
+  }
+  catch {
+    throw new Error(`Directory not writable or does not exist: ${outputDir}`)
+  }
 
-      const $ = cheerio.load(response.data)
-      const selectors = [
-        { tag: 'img', attr: 'src' },
-        { tag: 'link', attr: 'href' },
-        { tag: 'script', attr: 'src' },
-      ]
+  let response
+  try {
+    response = await axios.get(url)
+  }
+  catch (err) {
+    if (err.response) {
+      throw new Error(`Failed to load page ${url}. HTTP status: ${err.response.status}`)
+    }
+    throw new Error(`Network error while loading ${url}: ${err.message}`)
+  }
 
-      const resourcePromises = []
+  log(`Page downloaded: ${url}, status: ${response.status}`)
 
-      selectors.forEach(({ tag, attr }) => {
-        $(tag).each((i, el) => {
-          const src = $(el).attr(attr)
-          if (!src) return
+  const $ = cheerio.load(response.data)
+  const selectors = [
+    { tag: 'img', attr: 'src' },
+    { tag: 'link', attr: 'href' },
+    { tag: 'script', attr: 'src' },
+  ]
 
-          const resourceUrl = new URL(src, url).toString()
+  const resourcePromises = []
 
-          if (!isLocal(resourceUrl, url) || !isResource(resourceUrl)) {
-            log(`Skip external or non-resource: ${resourceUrl}`)
-            return
+  selectors.forEach(({ tag, attr }) => {
+    $(tag).each((i, el) => {
+      const src = $(el).attr(attr)
+      if (!src) return
+
+      const resourceUrl = new URL(src, url).toString()
+
+      if (!isLocal(resourceUrl, url) || !isResource(resourceUrl)) {
+        log(`Skip external or non-resource: ${resourceUrl}`)
+        return
+      }
+
+      const resourceFilename = makeResourceName(resourceUrl)
+      const resourcePath = path.join(resourcesDir, resourceFilename)
+
+      $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
+
+      log(`Downloading resource: ${resourceUrl} -> ${resourcePath}`)
+
+      const downloadPromise = axios
+        .get(resourceUrl, { responseType: 'arraybuffer' })
+        .then((res) => {
+          if (res.status !== 200) {
+            throw new Error(`Unexpected status code ${res.status} for resource ${resourceUrl}`)
           }
-
-          const resourceFilename = makeResourceName(resourceUrl)
-          const resourcePath = path.join(resourcesDir, resourceFilename)
-
-          $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
-
-          log(`Downloading resource: ${resourceUrl} -> ${resourcePath}`)
-
-          const downloadPromise = axios.get(resourceUrl, { responseType: 'arraybuffer' })
-            .then((res) => {
-              log(`Resource downloaded: ${resourceUrl}, status: ${res.status}`)
-              return fs.writeFile(resourcePath, res.data)
-            })
-            .catch((err) => {
-              log(`Failed to download resource: ${resourceUrl}, error: ${err.message}`)
-              console.error(`Failed to download resource: ${resourceUrl}`, err.message)
-              return null
-            })
-
-          resourcePromises.push(downloadPromise)
+          return fs.writeFile(resourcePath, res.data)
         })
-      })
-
-      return fs.mkdir(resourcesDir, { recursive: true })
-        .then(() => Promise.all(resourcePromises))
-        .then(() => fs.writeFile(filepath, $.html()))
-        .then(() => {
-          log(`Page successfully saved to: ${filepath}`)
-          return filepath
+        .catch((err) => {
+          throw new Error(`Failed to download resource ${resourceUrl}: ${err.message}`)
         })
+
+      resourcePromises.push(downloadPromise)
     })
+  })
+
+  try {
+    await fs.mkdir(resourcesDir, { recursive: true })
+    await Promise.all(resourcePromises)
+    await fs.writeFile(filepath, $.html())
+    log(`Page successfully saved to: ${filepath}`)
+    return filepath
+  }
+  catch (err) {
+    throw new Error(`Error saving page or resources: ${err.message}`)
+  }
 }
 
 export default pageLoader
