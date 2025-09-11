@@ -49,10 +49,4 @@ const isResource = (resourceUrl, baseUrl) => {
   }
 }
 
-const isLocal = (resourceUrl, baseUrl) => {
-  const pageHost = new URL(baseUrl).hostname
-  const resHost = new URL(resourceUrl, baseUrl).hostname
-  return pageHost === resHost
-}
-
-export { makeFilename, makeDirName, makeResourceName, isResource, isLocal }
+export { makeFilename, makeDirName, makeResourceName, isResource }
