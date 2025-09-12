@@ -4,6 +4,7 @@ import debug from 'debug'
 import { promises as fs } from 'fs'
 import path from 'path'
 import * as cheerio from 'cheerio'
+import Listr from 'listr'
 import { makeFilename, makeDirName, makeResourceName, isResource } from './utils.js'
 
 axiosDebug({
@@ -41,13 +42,15 @@ const pageLoader = (url, outputDir = process.cwd()) => {
   const resourcesDir = path.join(outputDir, resourcesDirName)
 
   return fs.access(outputDir, fs.constants.W_OK)
-    .catch(() => Promise.reject(new Error(`Directory not writable or does not exist: ${outputDir}`)))
+    .catch(() => {
+      throw new Error(`Directory not writable or does not exist: ${outputDir}`)
+    })
     .then(() => axios.get(url))
     .catch((err) => {
       if (err.response) {
-        return Promise.reject(new Error(`Failed to load page ${url}. HTTP status: ${err.response.status}`))
+        throw new Error(`Failed to load page ${url}. HTTP status: ${err.response.status}`)
       }
-      return Promise.reject(new Error(`Network error while loading ${url}: ${err.message}`))
+      throw new Error(`Network error while loading ${url}: ${err.message}`)
     })
     .then((response) => {
       log(`Page downloaded: ${url}, status: ${response.status}`)
@@ -59,10 +62,8 @@ const pageLoader = (url, outputDir = process.cwd()) => {
         { tag: 'script', attr: 'src' },
       ]
 
-      // Создаём папку ресурсов заранее
-      const createResourcesDir = fs.mkdir(resourcesDir, { recursive: true })
-
-      const resourcePromises = selectors.reduce((acc, { tag, attr }) => {
+      const resources = []
+      selectors.forEach(({ tag, attr }) => {
         $(tag).each((i, el) => {
           const src = $(el).attr(attr)
           if (!src) return
@@ -76,32 +77,41 @@ const pageLoader = (url, outputDir = process.cwd()) => {
           const resourceFilename = makeResourceName(resourceUrl)
           const resourcePath = path.join(resourcesDir, resourceFilename)
 
-          // Меняем ссылку в HTML на локальную
-          $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
-
-          log(`Downloading resource: ${resourceUrl} -> ${resourcePath}`)
-
-          const downloadPromise = createResourcesDir
-            .then(() => axios.get(resourceUrl, { responseType: 'arraybuffer' }))
-            .then((res) => {
-              if (res.status !== 200) {
-                return Promise.reject(new Error(`Unexpected status code ${res.status} for resource ${resourceUrl}`))
-              }
-              return fs.writeFile(resourcePath, res.data)
-            })
-            .catch(err => Promise.reject(new Error(`Failed to download resource ${resourceUrl}: ${err.message}`)))
-
-          acc.push(downloadPromise)
+          resources.push({ resourceUrl, resourcePath, el, attr, resourceFilename })
         })
-        return acc
-      }, [])
+      })
 
-      return Promise.all(resourcePromises)
+      const tasks = new Listr(
+        resources.map(({ resourceUrl, resourcePath, el, attr, resourceFilename }) => ({
+          title: `Downloading: ${resourceUrl}`,
+          task: () =>
+            axios.get(resourceUrl, { responseType: 'arraybuffer' })
+              .then((res) => {
+                if (res.status !== 200) {
+                  throw new Error(`Unexpected status code ${res.status} for ${resourceUrl}`)
+                }
+                return fs.writeFile(resourcePath, res.data)
+              })
+              .then(() => {
+                $(el).attr(attr, path.join(resourcesDirName, resourceFilename))
+              })
+              .catch((err) => {
+                throw new Error(`Failed to download resource ${resourceUrl}: ${err.message}`)
+              }),
+        })),
+        { concurrent: true },
+      )
+
+      return fs.mkdir(resourcesDir, { recursive: true })
+        .then(() => tasks.run())
         .then(() => fs.writeFile(filepath, $.html()))
         .then(() => {
           log(`Page successfully saved to: ${filepath}`)
           return filepath
         })
+    })
+    .catch((err) => {
+      throw new Error(`Error saving page or resources: ${err.message}`)
     })
 }
 

@@ -1,4 +1,3 @@
-/* eslint-env jest */
 import { makeFilename } from '../src/utils.js'
 
 describe('makeFilename', () => {
