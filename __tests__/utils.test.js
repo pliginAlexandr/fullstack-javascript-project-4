@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { jest } from '@jest/globals'
 import { makeFilename, isResource } from '../src/utils.js'
 
 describe('makeFilename', () => {
@@ -39,16 +39,16 @@ describe('isResource', () => {
 })
 
 describe('isResource - error handling', () => {
-  const baseUrl = 'https://example.com/page.html';
+  const baseUrl = 'https://example.com/page.html'
 
   test('handles completely malformed URLs', () => {
-    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-    
-    const result = isResource('http://', baseUrl);
-    
-    expect(result).toBe(false);
-    expect(consoleWarnSpy).toHaveBeenCalled();
-    
-    consoleWarnSpy.mockRestore();
-  });
-});
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation()
+
+    const result = isResource('http://', baseUrl)
+
+    expect(result).toBe(false)
+    expect(consoleWarnSpy).toHaveBeenCalled()
+
+    consoleWarnSpy.mockRestore()
+  })
+})
