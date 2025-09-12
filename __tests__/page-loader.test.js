@@ -153,6 +153,67 @@ test('pageLoader fails on HTTP error (404)', async () => {
     .rejects.toThrow(/HTTP status: 404/)
 })
 
+describe('page-loader resource error handling', () => {
+  test('throws on non-200 resource response', async () => {
+    const url = 'https://example.com/page.html'
+
+    nock('https://example.com')
+      .get('/page.html')
+      .reply(200, '<html><head><link rel="stylesheet" href="/bad.css"></head></html>')
+
+    nock('https://example.com')
+      .get('/bad.css')
+      .reply(403)
+
+    await expect(pageLoader(url, tempDir))
+      .rejects.toThrow('Error saving page or resources: Failed to download resource https://example.com/bad.css: Request failed with status code 403')
+  })
+})
+
+test('pageLoader throws on unexpected resource status code', async () => {
+  const url = 'https://example.com/page.html'
+
+  nock('https://example.com')
+    .get('/page.html')
+    .reply(200, '<html><head><link rel="stylesheet" href="/broken.css"></head></html>')
+
+  nock('https://example.com')
+    .get('/broken.css')
+    .reply(500, 'Server error')
+
+  await expect(pageLoader(url, tempDir))
+    .rejects.toThrow(
+      'Error saving page or resources: Failed to download resource https://example.com/broken.css: Request failed with status code 500',
+    )
+})
+
+test('pageLoader throws on unexpected resource status (line 91)', async () => {
+  const url = 'https://example.com/page.html'
+
+  nock('https://example.com')
+    .get('/page.html')
+    .reply(200, '<html><body><img src="/broken.png"/></body></html>')
+
+  const originalGet = axios.get
+  axios.get = jest.fn((reqUrl, opts) => {
+    if (reqUrl === 'https://example.com/broken.png') {
+      return Promise.resolve({
+        status: 500,
+        data: Buffer.from('oops'),
+        config: { url: reqUrl },
+      })
+    }
+    return originalGet(reqUrl, opts)
+  })
+
+  await expect(pageLoader(url, tempDir))
+    .rejects.toThrow(
+      'Error saving page or resources: Failed to download resource https://example.com/broken.png: Unexpected status code 500 for https://example.com/broken.png',
+    )
+
+  axios.get = originalGet
+})
+
 test('pageLoader fails when output directory is not writable', async () => {
   const url = 'https://example.com/page'
   const html = '<html><body><h1>Hi</h1></body></html>'
