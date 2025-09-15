@@ -1,6 +1,9 @@
 ### Hexlet tests and linter status:
 [![Actions Status](https://github.com/pliginAlexandr/fullstack-javascript-project-4/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/pliginAlexandr/fullstack-javascript-project-4/actions)
 
+### SonarQube check
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pliginAlexandr_fullstack-javascript-project-4&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=pliginAlexandr_fullstack-javascript-project-4)
+
 **Page Loader** — utility for downloading web pages and their local resources (images, scripts, styles). 
 Useful for offline access and analysis of site structure.
 
