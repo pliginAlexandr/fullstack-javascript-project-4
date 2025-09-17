@@ -7,6 +7,9 @@
   "bin": {
     "page-loader": "./bin/cli.js"
   },
+  "engines": {
+    "node": ">=23.0.0"
+  },
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand"
