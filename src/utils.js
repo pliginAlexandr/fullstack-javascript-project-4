@@ -28,23 +28,23 @@ const makeResourceName = (link) => {
   return `${base}${ext}`
 }
 
-const isResource = (resourceUrl, baseUrl) => {
+const isResource = (link, baseUrl) => {
+  if (!link) return false
+
   try {
-    if (resourceUrl === baseUrl) return false
+    const resourceUrl = baseUrl ? new URL(link, baseUrl) : new URL(link)
 
-    const { pathname } = new URL(resourceUrl, baseUrl)
-    const ext = (path.extname(pathname) || '.html').toLowerCase()
+    if (baseUrl) {
+      const pageUrl = new URL(baseUrl)
+      if (resourceUrl.href === pageUrl.href) {
+        return false
+      }
+    }
 
-    const resourceExtensions = [
-      '.png', '.jpg', '.jpeg', '.gif', '.svg',
-      '.css', '.js', '.ico', '.webp',
-      '.html',
-    ]
-
-    return resourceExtensions.includes(ext)
+    return true
   }
   catch (e) {
-    console.warn(`Invalid URL: ${resourceUrl}`, e.message)
+    console.warn(`Invalid URL: ${e.message}`)
     return false
   }
 }
