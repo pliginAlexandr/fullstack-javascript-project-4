@@ -14,16 +14,18 @@ const downloadResources = async (resources, resourcesDirName, { strict = true, l
             throw new Error(`Unexpected status code ${res.status} for ${resourceUrl}`)
           }
           await fs.writeFile(resourcePath, res.data)
-        } catch (err) {
+        }
+        catch (err) {
           if (strict) {
             throw new Error(`Failed to download resource ${resourceUrl}: ${err.message}`)
-          } else {
+          }
+          else {
             log.warn(`Failed to download resource ${resourceUrl}: ${err.message}`)
           }
         }
       },
     })),
-    { concurrent: true }
+    { concurrent: true },
   )
 
   await tasks.run()
